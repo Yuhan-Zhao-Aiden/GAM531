@@ -5,7 +5,7 @@ namespace ApplyTexture
     public static (float[] vertices, uint[] indices) BuildCuboid(float length, float side)
     {
       // Compute the absolute value of coordinates around origin
-      float L = length * 0.5f; 
+      float L = length * 0.5f;
       float H = side * 0.5f;
       float W = side * 0.5f;
 
@@ -47,14 +47,16 @@ namespace ApplyTexture
       uint[] indices = new uint[]
       {
           0, 1, 2, 2, 3, 0,
-          4, 5, 6, 6, 7, 4, 
-          8, 9,10,10,11, 8, 
-        12,13,14,14,15,12, 
-        16,17,18,18,19,16, 
-        20,21,22,22,23,20 
+          4, 5, 6, 6, 7, 4,
+          8, 9,10,10,11, 8,
+        12,13,14,14,15,12,
+        16,17,18,18,19,16,
+        20,21,22,22,23,20
       };
 
       return (vertices, indices);
     }
+
+
   }
 }

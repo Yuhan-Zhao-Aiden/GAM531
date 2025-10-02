@@ -9,6 +9,10 @@
 
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.*" />
+    <PackageReference Include="StbImageSharp" Version="2.30.15" />
+    <None Include="Assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

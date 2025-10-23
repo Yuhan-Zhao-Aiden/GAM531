@@ -1,6 +1,6 @@
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 
-namespace Monolith
+namespace Monolith.core
 {
   public enum MeshType { Plane, Cube };
   public class Mesh: IDisposable

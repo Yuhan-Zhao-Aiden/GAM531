@@ -12,7 +12,10 @@ namespace Monolith
         ClientSize = new Vector2i(1280, 720),
       };
 
-      
+      using (Game game = new(GameWindowSettings.Default, ns))
+      {
+        game.Run();
+      }
     }
 
   }

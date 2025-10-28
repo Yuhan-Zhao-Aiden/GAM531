@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -5,16 +6,18 @@ using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using System.IO;
 using Monolith.core;
+using Monolith.Physics;
 
 namespace Monolith
 {
   public class Game : GameWindow
   {
-    private List<Mesh> scene = new List<Mesh>();
-    private List<Texture> textures = new List<Texture>();
+    private readonly List<SceneObject> sceneObjects = new();
+    private readonly List<PhysicsBody> dynamicBodies = new();
     private Camera camera;
     private Shader shader;
     private float time = 0f; // Track elapsed time for rotation
+    private SceneObject? monolithObject;
     // private Texture? groundTexture, crateTexture, monolithTexture;
     
     public Game(GameWindowSettings gs, NativeWindowSettings ns)
@@ -23,11 +26,27 @@ namespace Monolith
       float[] vertices;
       uint[] indices;
       (vertices, indices) = Geometry.BuildPlane();
-      scene.Add(new Mesh(MeshType.Plane, vertices, indices));
+      var planeMesh = new Mesh(MeshType.Plane, vertices, indices);
+      var groundObject = new SceneObject(planeMesh, null);
+      sceneObjects.Add(groundObject);
 
       (vertices, indices) = Geometry.BuildCube();
-      scene.Add(new Mesh(MeshType.Cube, vertices, indices));
-      scene.Add(new Mesh(MeshType.Cube, vertices, indices));
+      var crateMesh = new Mesh(MeshType.Cube, vertices, indices);
+      var crateTransform = new Transform
+      {
+        Scale = new Vector3(3, 3, 3),
+        Position = new Vector3(3, 1.5f, -5)
+      };
+      var crateObject = new SceneObject(crateMesh, null, crateTransform);
+      sceneObjects.Add(crateObject);
+
+      var monolithMesh = new Mesh(MeshType.Cube, vertices, indices);
+      var monolithTransform = new Transform
+      {
+        Position = new Vector3(-3, 3, -5)
+      };
+      monolithObject = new SceneObject(monolithMesh, null, monolithTransform);
+      sceneObjects.Add(monolithObject);
 
       // Camera
       camera = new Camera(new Vector3(0, 3, 3));
@@ -43,13 +62,13 @@ namespace Monolith
       string crateTexturePath = Path.Combine(baseDir, "Assets", "crate.png");
       string monolithTexturePath = Path.Combine(baseDir, "Assets", "Monolith.jpg");
       if (File.Exists(groundTexturePath))
-        textures.Add(new Texture(groundTexturePath));
+        groundObject.Texture = new Texture(groundTexturePath);
 
       if (File.Exists(crateTexturePath))
-        textures.Add(new Texture(crateTexturePath));
+        crateObject.Texture = new Texture(crateTexturePath);
 
-      if (File.Exists(monolithTexturePath))
-        textures.Add(new Texture(monolithTexturePath));
+      if (File.Exists(monolithTexturePath) && monolithObject != null)
+        monolithObject.Texture = new Texture(monolithTexturePath);
     }
 
     protected override void OnLoad()
@@ -100,33 +119,27 @@ namespace Monolith
       shader.SetVector3("uLightColor", new Vector3(1f, 1f, 1f));
       shader.SetVector3("uViewPos", camera.Position);
 
-      // Ground
-      shader.SetBool("uUseTexture", true);
-      shader.SetInt("uTex", 0);
-      textures[0]?.Use(TextureUnit.Texture0);
-      shader.SetMatrix4("uModel", new Transform().Model);
-      scene[0].Draw();
+      if (monolithObject != null)
+      {
+        // Slow rotation on multiple axes (0.3 radians/sec on each axis)
+        float rotX = time * 0.3f; // Slow rotation around X-axis
+        float rotY = time * 0.5f; // Slightly faster on Y-axis
+        float rotZ = time * 0.2f; // Even slower on Z-axis
+        monolithObject.Transform.Rotation = new Vector3(rotX, rotY, rotZ);
+      }
 
-      // Crate
-      textures[1]?.Use(TextureUnit.Texture0);
-      Transform transform = new Transform();
-      transform.Scale = new Vector3(3, 3, 3);
-      transform.Position = new Vector3(3, 1.5f, -5);
-      shader.SetMatrix4("uModel", transform.Model);
-      scene[1].Draw();
-
-      // Monolith
-      textures[2]?.Use(TextureUnit.Texture0);
-      transform = new Transform();
-      transform.Position = new Vector3(-3, 3, -5);
-      // Slow rotation on multiple axes (0.3 radians/sec on each axis)
-      float rotX = time * 0.3f; // Slow rotation around X-axis
-      float rotY = time * 0.5f; // Slightly faster on Y-axis
-      float rotZ = time * 0.2f; // Even slower on Z-axis
-      transform.Rotation = new Vector3(rotX, rotY, rotZ);
-      shader.SetMatrix4("uModel", transform.Model);
-      scene[2].Draw();
-
+      foreach (var obj in sceneObjects)
+      {
+        bool hasTexture = obj.Texture != null;
+        shader.SetBool("uUseTexture", hasTexture);
+        if (hasTexture && obj.Texture != null)
+        {
+          shader.SetInt("uTex", 0);
+          obj.Texture.Use(TextureUnit.Texture0);
+        }
+        shader.SetMatrix4("uModel", obj.Transform.Model);
+        obj.Mesh.Draw();
+      }
 
 
       SwapBuffers();
@@ -142,8 +155,15 @@ namespace Monolith
     protected override void OnUnload()
     {
       base.OnUnload();
-      foreach (var item in scene) { item.Dispose(); }
-      foreach (var item in textures) { item.Dispose(); }
+      var disposedTextures = new HashSet<Texture>();
+      foreach (var obj in sceneObjects)
+      {
+        obj.Mesh.Dispose();
+        if (obj.Texture != null && disposedTextures.Add(obj.Texture))
+        {
+          obj.Texture.Dispose();
+        }
+      }
       shader.Dispose();
     }
   }

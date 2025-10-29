@@ -2,9 +2,6 @@ using OpenTK.Mathematics;
 
 namespace Monolith.Physics
 {
-  /// <summary>
-  /// Minimal representation of a rigid body for future physics integration.
-  /// </summary>
   public class PhysicsBody
   {
     public Vector3 Position;
@@ -16,17 +13,16 @@ namespace Monolith.Physics
     public Vector3 Force;
 
     private float _mass = 1f;
-    public float InverseMass { get; private set; }
+    public float InverseMass { get; private set; } = 1f;
     public float Mass
     {
       get => _mass;
       set
       {
-        if (value > 0)
-        {
-          _mass = value;
-          InverseMass = 1f / value;
-        }
+        if (value <= 0f) return;
+        _mass = value;
+        InverseMass = 1f / value;
+        if (IsStatic) InverseMass = 0f;
       }
     }
 
@@ -39,6 +35,9 @@ namespace Monolith.Physics
       IsStatic = isStatic;
       Restitution = restitution;
       Velocity = Vector3.Zero;
+
+      if (IsStatic) { _mass = 0f; InverseMass = 0f; }
+      else { _mass = 1f; InverseMass = 1f; }
     }
 
     public static PhysicsBody CreateStaticBox(Vector3 position, Vector3 halfExtents)
@@ -52,7 +51,10 @@ namespace Monolith.Physics
     }
 
     public void ApplyForce(Vector3 exert) { Force += exert; }
-    
+
     public void ClearForce() { Force = Vector3.Zero; }
+
+    public Vector3 Min => Position - HalfExtents;
+    public Vector3 Max => Position + HalfExtents;
   }
 }

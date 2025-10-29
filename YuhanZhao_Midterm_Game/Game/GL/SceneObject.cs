@@ -3,9 +3,7 @@ using Monolith.Physics;
 
 namespace Monolith.core
 {
-  /// <summary>
-  /// Bundles render and physics state for a single scene entity.
-  /// </summary>
+
   public class SceneObject
   {
     public Mesh Mesh { get; }

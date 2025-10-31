@@ -5,8 +5,9 @@
 - Game name: Monolith
 - Description: A 3D scene build using OpenTK with basic physics engine
 <p align="center">
-  <img src="Screenshot 2025-10-30 223326.png" width="800" alt="Centered cube render">
+  <img src="Screenshot 2025-10-30 223326.png" width="1000" alt="Centered cube render">
 </p>
+
 ## Gameplay Instructions
 
 - W/A/S/D: Move the character forward, left, back and right.

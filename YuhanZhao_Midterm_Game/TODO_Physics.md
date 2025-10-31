@@ -1,9 +1,0 @@
-- [ ] Replace the raw `scene` and `textures` lists in `Game/Game.cs` with a lightweight `SceneObject` record that bundles `Mesh`, `Texture?`, `Transform`, and an optional `PhysicsBody`. Keep a parallel collection for dynamic bodies you need to tick each frame.
-- [ ] Add `Game/Physics/PhysicsBody.cs` defining a simple struct with `Vector3 Position`, `Vector3 Velocity`, `Vector3 HalfExtents`, and flags like `IsStatic` plus a `Restitution` value. Include helpers to build AABB bodies for cubes and planes.
-- [ ] Create `Game/Physics/PhysicsWorld.cs` to store gravity (`Vector3 Down = new(0, -9.81f, 0)`), a fixed timestep, and the body list. Implement `Step(float dt)` that applies gravity to dynamic bodies and integrates with semi-implicit Euler.
-- [ ] Implement `Game/Physics/Collision.cs` with minimal AABB-vs-plane and AABB-vs-AABB overlap tests that return penetration depth and collision normal. Provide a `ResolvePenetration` method to push bodies apart and reflect velocity using restitution.
-- [ ] In `Game/Game.cs::OnLoad`, register physics bodies for the ground plane, curve elements, and any meshes that should be dynamic (crate, monolith, future projectiles).
-- [ ] In `Game/Game.cs::OnUpdateFrame`, accumulate frame time, run a `while (accum >= fixedStep)` loop to call `PhysicsWorld.Step(fixedStep)`, then copy positions back into each entity’s `Transform.Position`.
-- [ ] Add player input (e.g., right mouse or `Keys.Space`) that spawns a unit cube at the camera with velocity `camera.Forward * launchSpeed`, registers its mesh, and inserts a matching `PhysicsBody`.
-- [ ] After each physics step, rebuild dynamic model matrices before drawing so visuals follow physics state. Optionally add a debug toggle to tint colliding bodies.
-- [ ] Extend `Shaders/fragment.glsl` with a fallback `uColor` uniform so untextured debug bodies render correctly; set it only when no texture is bound.

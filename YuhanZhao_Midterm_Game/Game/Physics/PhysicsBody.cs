@@ -19,14 +19,14 @@ namespace Monolith.Physics
       get => _mass;
       set
       {
-        if (value <= 0f) return;
+        if (value <= 0f ) return;
         _mass = value;
-        InverseMass = 1f / value;
-        if (IsStatic) InverseMass = 0f;
+        InverseMass = (IsStatic || float.IsInfinity(value)) ? 0f : 1f / value;
       }
     }
 
-
+    public Vector3 Min => Position - HalfExtents;
+    public Vector3 Max => Position + HalfExtents;
 
     public PhysicsBody(Vector3 position, Vector3 halfExtents, bool isStatic = false, float restitution = 0.5f)
     {
@@ -35,9 +35,9 @@ namespace Monolith.Physics
       IsStatic = isStatic;
       Restitution = restitution;
       Velocity = Vector3.Zero;
+      Force = Vector3.Zero;
 
-      if (IsStatic) { _mass = 0f; InverseMass = 0f; }
-      else { _mass = 1f; InverseMass = 1f; }
+      Mass = isStatic ? float.PositiveInfinity : 1f;
     }
 
     public static PhysicsBody CreateStaticBox(Vector3 position, Vector3 halfExtents)
@@ -53,8 +53,5 @@ namespace Monolith.Physics
     public void ApplyForce(Vector3 exert) { Force += exert; }
 
     public void ClearForce() { Force = Vector3.Zero; }
-
-    public Vector3 Min => Position - HalfExtents;
-    public Vector3 Max => Position + HalfExtents;
   }
 }

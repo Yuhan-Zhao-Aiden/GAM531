@@ -72,7 +72,7 @@ void main()
     GL.ClearColor(0.1f, 0.12f, 0.16f, 1f);
     GL.Enable(EnableCap.Blend);
     GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-    GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
+    GL.Viewport(0, 0, FramebufferSize.X, FramebufferSize.Y);
 
     _shader = new Shader(VertexShaderSource, FragmentShaderSource);
     _shader.Use();
@@ -87,11 +87,14 @@ void main()
     var idleSpritePath = RequireAsset(Path.Combine(_contentRoot, "Animation", "_Idle.png"), "Idle sprite sheet is missing.");
     var jumpSpritePath = RequireAsset(Path.Combine(_contentRoot, "Animation", "_Jump.png"), "Jump sprite sheet is missing.");
     var fallSpritePath = RequireAsset(Path.Combine(_contentRoot, "Animation", "_Fall.png"), "Fall sprite sheet is missing.");
+    var runSpritePath = RequireAsset(Path.Combine(_contentRoot, "Animation", "_Run.png"), "Run sprite sheet is missing");
 
     var idleFrameOrigins = new List<Vector2i>(10);
+    var runFrameOrigins = new List<Vector2i>(10);
     for (var i = 0; i < 10; i++)
     {
       idleFrameOrigins.Add(new Vector2i(40 + i * 120, 0));
+      runFrameOrigins.Add(new Vector2i(40 + i * 120, 0));
     }
 
     var jumpFrameOrigins = new List<Vector2i>(3);
@@ -106,14 +109,25 @@ void main()
     playerRenderer.LoadAnimation("Idle", idleSpritePath, frameWidth: 25, frameHeight: 40, idleFrameOrigins, frameDurationSeconds: 0.1, loop: true);
     playerRenderer.LoadAnimation("Jump", jumpSpritePath, frameWidth: 30, frameHeight: 40, jumpFrameOrigins, frameDurationSeconds: 0.1, loop: false);
     playerRenderer.LoadAnimation("Fall", fallSpritePath, frameWidth: 30, frameHeight: 40, fallFrameOrigins, frameDurationSeconds: 0.1, loop: true);
+    playerRenderer.LoadAnimation("Run", runSpritePath, frameWidth: 25, frameHeight: 40, runFrameOrigins, frameDurationSeconds: 0.1, loop: true);
 
-    var playerStart = new Vector2(ClientSize.X / 2f, ClientSize.Y / 2f);
-    _player = new Player(playerStart, playerRenderer);
-    _player.PlayAnimation("Idle");
-
+    // Create player and ground first to calculate proper positioning
     var groundSpritePath = RequireAsset(Path.Combine(_contentRoot, "Assets", "ground.png"), "Ground texture is missing.");
     _groundTexturePath = groundSpritePath;
     _groundTextureSize = IdentifyTextureSize(groundSpritePath);
+    Console.WriteLine(_groundTextureSize);
+    
+    // Position player on the ground properly
+    var playerScale = 2f;
+    var groundHeight = _groundTextureSize.Y;
+    var playerHeight = 40 * playerScale; // Frame height * scale
+    var playerStartY = groundHeight + playerHeight / 2f; // Bottom of player should touch top of ground
+    var playerStart = new Vector2(ClientSize.X / 2f, playerStartY);
+    
+    _player = new Player(playerStart, playerRenderer);
+    _player.setScale(playerScale);
+    _player.PlayAnimation("Idle");
+
     BuildGroundTiles();
   }
 
@@ -130,6 +144,7 @@ void main()
 
     HandlePlayerInput(_player);
     IntegratePlayer(_player, deltaSeconds);
+    ClampPlayerToWindow(_player);
     ResolvePlayerGroundCollisions(_player);
     UpdatePlayerAnimation(_player);
     _player.Update(deltaSeconds);
@@ -179,7 +194,35 @@ void main()
 
     if (_player is not null)
     {
-      _player.Position = new Vector2(e.Width / 2f, e.Height / 2f);
+      // Keep player positioned properly on the ground
+      var groundHeight = _groundTextureSize.Y;
+      var playerHeight = _player.Size.Y;
+      var playerY = groundHeight + playerHeight / 2f;
+      _player.Position = new Vector2(ClientSize.X / 2f, playerY);
+    }
+
+    BuildGroundTiles();
+  }
+
+  protected override void OnResize(ResizeEventArgs e)
+  {
+    base.OnResize(e);
+
+    UpdateProjection();
+
+    if (_shader is not null)
+    {
+      _shader.Use();
+      _shader.SetMatrix4("uProjection", _projection);
+    }
+
+    if (_player is not null)
+    {
+      // Keep player positioned properly on the ground
+      var groundHeight = _groundTextureSize.Y;
+      var playerHeight = _player.Size.Y;
+      var playerY = groundHeight + playerHeight / 2f;
+      _player.Position = new Vector2(ClientSize.X / 2f, playerY);
     }
 
     BuildGroundTiles();
@@ -199,7 +242,9 @@ void main()
   }
 
   private void UpdateProjection()
-      => _projection = Matrix4.CreateOrthographicOffCenter(0, ClientSize.X, 0, ClientSize.Y, -1f, 1f);
+  {
+    _projection = Matrix4.CreateOrthographicOffCenter(0, ClientSize.X, 0, ClientSize.Y, -1f, 1f);
+  }
 
   private static string RequireAsset(string path, string errorMessage)
   {
@@ -235,8 +280,8 @@ void main()
       return;
     }
 
-    var tileWidth = _groundTextureSize.X;
-    var tileHeight = _groundTextureSize.Y;
+    var tileWidth = _groundTextureSize.X; // 62
+    var tileHeight = _groundTextureSize.Y; // 65
 
     if (tileWidth <= 0 || tileHeight <= 0)
     {
@@ -256,6 +301,18 @@ void main()
       var tile = new GroundTile(position, renderer);
       _groundTiles.Add(tile);
     }
+    // mountain
+    for (var i = 0; i < 4; i++) {
+      var renderer = new SpriteRenderer();
+      renderer.LoadAnimation("Static", _groundTexturePath, tileWidth, tileHeight, frameDurationSeconds: 0, loop: true);
+      renderer.SetAnimation("Static", true);
+      var y = (3.2f/2 + i) * tileHeight;
+      for (var j = 4 - i; j > 0; j--) {
+        var x = 500 - j * tileWidth;
+        var tile = new GroundTile(new Vector2(x, y), renderer);
+        _groundTiles.Add(tile);
+      }
+    }
   }
 
   private void HandlePlayerInput(Player player)
@@ -267,6 +324,18 @@ void main()
     {
       player.Velocity = new Vector2(player.Velocity.X, JumpImpulse);
       player.IsGrounded = false;
+    }
+
+    // Run and set direction
+    if (keyboard.IsKeyDown(Keys.D))
+    {
+      player.Velocity = new Vector2(500f, player.Velocity.Y);
+      player.FacingDirection = Direction.Right;
+    }
+    if (keyboard.IsKeyDown(Keys.A)) 
+    {
+      player.Velocity = new Vector2(-500f, player.Velocity.Y);
+      player.FacingDirection = Direction.Left;
     }
   }
 
@@ -281,6 +350,22 @@ void main()
 
     player.Velocity = velocity;
     player.Position += velocity * (float)deltaSeconds;
+  }
+
+  private void ClampPlayerToWindow(Player player)
+  {
+    var playerHalfWidth = player.Size.X * 0.5f;
+    var minX = playerHalfWidth;
+    var maxX = ClientSize.X - playerHalfWidth;
+    
+    var clampedX = Math.Clamp(player.Position.X, minX, maxX);
+    
+    if (clampedX != player.Position.X)
+    {
+      player.Velocity = new Vector2(0f, player.Velocity.Y);
+    }
+    
+    player.Position = new Vector2(clampedX, player.Position.Y);
   }
 
   private void ResolvePlayerGroundCollisions(Player player)
@@ -337,9 +422,9 @@ void main()
       return;
     }
 
-    if (MathF.Abs(player.Velocity.X) <= idleSpeedThreshold)
+    if (MathF.Abs(player.Velocity.X) > idleSpeedThreshold)
     {
-      player.PlayAnimation("Idle");
+      player.PlayAnimation("Run");
       return;
     }
 
